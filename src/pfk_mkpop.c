@@ -51,10 +51,10 @@ void condense_files(unsigned int n, FILE ** infiles, unsigned int * minfreqs, FI
 				passed_cutoff=0;
 			}
 			if (records[i].kmer==min) {
-				bitfield+=1<<i;
+				bitfield+=0x1ULL<<i;
 				if (minfreqs[i]<=records[i].freq) {
 					passed_cutoff=1;
-					cbitfield+=1<<i;
+					cbitfield+=0x1ULL<<i;
 				}
 			}
 		}
@@ -65,12 +65,13 @@ void condense_files(unsigned int n, FILE ** infiles, unsigned int * minfreqs, FI
 			fwrite(&min,sizeof(uint64_t),1,outfile);
 			fwrite(&cbitfield,sizeof(uint64_t),1,outfile);
 		}
+		
 		//for each bit turned on, write freq, 
-
 		for(int i=0;i<n;i++){
-			if(bitfield&1<<i){
-				//write freq
-				if (cbitfield&1<<i){
+			if(bitfield&0x1ULL<<i){
+				//write freqa
+				count++;
+				if (cbitfield&0x1ULL<<i){
 					fwrite(&records[i].freq,sizeof(uint16_t),1,outfile);
 				}
 				//read next record with cutoff
@@ -78,29 +79,30 @@ void condense_files(unsigned int n, FILE ** infiles, unsigned int * minfreqs, FI
 					//if no record mark file as ended and closed_file++
 					file_ends[i]==1;
 					closed_files++;
+					printf("File %d ended\n",i);
 				}
 			}
 		}
 		//TODO: if 10000 kmers have passed, go back and fill the header and then put a dummy header on
-		if (0==++count%10000000) printf("%d records processed - %d condensed\n",count,ok_count);
+		if (0==ok_count%10000000) printf("%lu records processed - %lu condensed\n",count,ok_count);
 	}
 	//fill the header for the last block
 }
 
 int main(int argc,char ** argv ) {
-    FILE * infiles[64];
-    unsigned int minfreqs[64];
-    FILE * outfile;
-    //for each pair of arguments open a file and set its frequency limit (till the last argument, which is the output
-    for (int i=1;i<argc-2;i+=2){
-	infiles[(i-1)/2]=fopen(argv[i],"r");
-	minfreqs[(i-1)/2]=atoi(argv[i+1]);
-	printf ("File %s opened with limit %d\n",argv[i],minfreqs[(i-1)/2]);
-    }
-    //open the output file
-    outfile=fopen(argv[argc-1],"w");
-    printf ("Output %s opened\n",argv[argc-1]);
-    //call the merge function
-    condense_files((argc-2)/2,infiles,minfreqs,outfile);
-    return 0;
+	FILE * infiles[64];
+	unsigned int minfreqs[64];
+	FILE * outfile;
+	//for each pair of arguments open a file and set its frequency limit (till the last argument, which is the output
+	for (int i=1;i<argc-2;i+=2){
+		infiles[(i-1)/2]=fopen(argv[i],"r");
+		minfreqs[(i-1)/2]=atoi(argv[i+1]);
+		printf ("File %s opened with limit %d\n",argv[i],minfreqs[(i-1)/2]);
+	}
+	//open the output file
+	outfile=fopen(argv[argc-1],"w");
+	printf ("Output %s opened\n",argv[argc-1]);
+	//call the merge function
+	condense_files((argc-2)/2,infiles,minfreqs,outfile);
+	return 0;
 }
